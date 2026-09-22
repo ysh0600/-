@@ -6,6 +6,7 @@ import '../widgets/genre_chips.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_stats.dart';
 import '../widgets/stat_item.dart';
+import 'signup_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -16,7 +17,26 @@ class ProfileScreen extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: const AppTopBar(title: '내 프로필'),
+      appBar: AppTopBar(
+        title: '내 프로필',
+        actions: [
+          IconButton(
+            icon: SvgPicture.asset(
+              'assets/icons/person.svg',
+              width: 24,
+              height: 24,
+              colorFilter: ColorFilter.mode(colors.onSurface, BlendMode.srcIn),
+            ),
+            tooltip: '회원가입 화면 보기',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SignupScreen()),
+              );
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           // Padding: 화면 "안쪽" 여백 — 본문 전체와 화면 가장자리 사이 간격.
@@ -26,7 +46,8 @@ class ProfileScreen extends StatelessWidget {
             children: [
               ProfileHeader(
                 name: '무비러버',
-                bio: '매주 주말엔 영화관으로 출근하는 프로 관람객. '
+                bio:
+                    '매주 주말엔 영화관으로 출근하는 프로 관람객. '
                     '좋은 영화를 보고 기록하는 것을 좋아합니다.',
                 onEditPressed: () {},
               ),

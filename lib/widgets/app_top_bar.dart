@@ -6,9 +6,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 /// Scaffold.appBar 자리에 들어가려면 PreferredSizeWidget을 구현해야 해서,
 /// 일반 StatelessWidget이 아니라 이 타입을 implements 한다.
 class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
-  const AppTopBar({super.key, required this.title});
+  const AppTopBar({super.key, required this.title, this.actions});
 
   final String title;
+  final List<Widget>? actions;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +38,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         ],
       ),
+      actions: actions,
     );
   }
 
