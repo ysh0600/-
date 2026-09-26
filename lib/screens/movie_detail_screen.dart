@@ -7,6 +7,7 @@ import '../widgets/genre_chips.dart';
 import '../widgets/movie_action_buttons.dart';
 import '../widgets/movie_rating_input.dart';
 import '../widgets/movie_rating_summary.dart';
+import '../widgets/share_bottom_sheet.dart';
 
 class MovieDetailScreen extends StatefulWidget {
   const MovieDetailScreen({super.key, required this.movieId});
@@ -99,7 +100,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
               colorFilter: ColorFilter.mode(colors.onSurface, BlendMode.srcIn),
             ),
             tooltip: '공유',
-            onPressed: () {},
+            onPressed: () => ShareBottomSheet.show(context, movie.title),
           ),
         ],
       ),
