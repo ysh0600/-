@@ -9,16 +9,17 @@ class AppTheme {
   static const double radius = 8;
 
   static ThemeData get light {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: AppColors.primary,
-      onPrimary: AppColors.onPrimary,
-      surface: AppColors.surface,
-      onSurface: AppColors.onSurface,
-      outline: AppColors.outline,
-    );
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: AppColors.primary,
+          onPrimary: AppColors.onPrimary,
+          surface: AppColors.surface,
+          onSurface: AppColors.onSurface,
+          outline: AppColors.outline,
+        );
 
     return ThemeData(
       useMaterial3: true,

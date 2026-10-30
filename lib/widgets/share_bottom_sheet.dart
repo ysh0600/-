@@ -19,7 +19,8 @@ class ShareBottomSheet extends StatelessWidget {
 
   void _share(BuildContext context, String message) {
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

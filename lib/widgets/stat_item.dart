@@ -3,11 +3,7 @@ import 'package:flutter/material.dart';
 /// "본 영화 / 평점 / 즐겨찾기"처럼 라벨 + 값 한 쌍을 보여주는
 /// 재사용 가능한 통계 카드. ProfileStats에서 3번 재사용된다.
 class StatItem extends StatelessWidget {
-  const StatItem({
-    super.key,
-    required this.label,
-    required this.value,
-  });
+  const StatItem({super.key, required this.label, required this.value});
 
   final String label;
   final String value;

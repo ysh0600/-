@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/movie.dart';
+import '../models/tmdb_movie_dto.dart';
 import '../theme/app_theme.dart';
+import 'tmdb_poster_image.dart';
 
 /// 홈 화면 상단의 추천 영화 배너. 포스터 위에 그라데이션과 정보를 얹고,
 /// "상세보기"를 누르면 상세 화면(`/movies/:movieId`)으로 이동한다.
 class FeaturedMovieBanner extends StatelessWidget {
   const FeaturedMovieBanner({super.key, required this.movie});
 
-  final Movie movie;
+  final TmdbMovieDto movie;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +26,13 @@ class FeaturedMovieBanner extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(movie.posterAsset, fit: BoxFit.cover),
+              LayoutBuilder(
+                builder: (context, constraints) => TmdbPosterImage(
+                  posterPath: movie.posterPath,
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                ),
+              ),
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -73,7 +80,7 @@ class FeaturedMovieBanner extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '${movie.genres.join(' · ')} · ${movie.runtimeMinutes}분',
+                      '${(movie.releaseDate ?? '').split('-').first} · ★ ${movie.voteAverage.toStringAsFixed(1)}',
                       style: textTheme.bodyMedium?.copyWith(
                         color: Colors.white70,
                       ),

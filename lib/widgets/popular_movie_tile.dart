@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/movie.dart';
+import '../models/tmdb_movie_dto.dart';
 import '../theme/app_theme.dart';
+import 'tmdb_poster_image.dart';
 
 /// 홈 화면 "인기 영화" 가로 목록의 항목. 순위 배지 + 포스터 + 제목 + 별점을 보여준다.
 class PopularMovieTile extends StatelessWidget {
   const PopularMovieTile({super.key, required this.movie, required this.rank});
 
-  final Movie movie;
+  final TmdbMovieDto movie;
   final int rank;
 
   @override
@@ -30,7 +31,13 @@ class PopularMovieTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppTheme.radius),
                   child: AspectRatio(
                     aspectRatio: 2 / 3,
-                    child: Image.asset(movie.posterAsset, fit: BoxFit.cover),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => TmdbPosterImage(
+                        posterPath: movie.posterPath,
+                        width: constraints.maxWidth,
+                        height: constraints.maxHeight,
+                      ),
+                    ),
                   ),
                 ),
                 Positioned(
@@ -78,7 +85,7 @@ class PopularMovieTile extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  movie.rating.toStringAsFixed(1),
+                  movie.voteAverage.toStringAsFixed(1),
                   style: textTheme.bodySmall,
                 ),
               ],

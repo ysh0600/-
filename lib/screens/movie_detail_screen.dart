@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
 
-import '../data/mock_movies.dart';
-import '../models/movie.dart';
+import '../models/tmdb_movie_detail_dto.dart';
+import '../view_models/movie_detail_view_model.dart';
 import '../widgets/genre_chips.dart';
 import '../widgets/movie_action_buttons.dart';
+import '../widgets/movie_error_view.dart';
+import '../widgets/movie_loading_view.dart';
 import '../widgets/movie_rating_input.dart';
 import '../widgets/movie_rating_summary.dart';
 import '../widgets/share_bottom_sheet.dart';
+import '../widgets/tmdb_poster_image.dart';
 
 class MovieDetailScreen extends StatefulWidget {
-  const MovieDetailScreen({super.key, required this.movieId});
-
-  final String movieId;
+  const MovieDetailScreen({super.key});
 
   @override
   State<MovieDetailScreen> createState() => _MovieDetailScreenState();
@@ -29,7 +31,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     );
   }
 
-  Future<void> _openRatingDialog(Movie movie) async {
+  Future<void> _openRatingDialog(TmdbMovieDetailDto movie) async {
     var tempRating = _rating;
 
     await showDialog<void>(
@@ -77,16 +79,36 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final movie = findMovieById(widget.movieId);
+    final viewModel = context.watch<MovieDetailViewModel>();
+    final movie = viewModel.movie;
+
+    return switch (viewModel.status) {
+      MovieDetailLoadStatus.idle || MovieDetailLoadStatus.loading => Scaffold(
+        appBar: AppBar(),
+        body: const MovieLoadingView(),
+      ),
+      MovieDetailLoadStatus.error => Scaffold(
+        appBar: AppBar(),
+        body: MovieErrorView(
+          onRetry: () {
+            context.read<MovieDetailViewModel>().load();
+          },
+        ),
+      ),
+      MovieDetailLoadStatus.success => _buildDetail(context, movie!),
+    };
+  }
+
+  Widget _buildDetail(BuildContext context, TmdbMovieDetailDto movie) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-
-    if (movie == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('영화를 찾을 수 없어요')),
-        body: const Center(child: Text('존재하지 않는 영화입니다.')),
-      );
-    }
+    final year = (movie.releaseDate ?? '').split('-').first;
+    final genreNames = movie.genres.map((genre) => genre.name).toList();
+    final info = [
+      if (year.isNotEmpty) year,
+      if (genreNames.isNotEmpty) genreNames.join('/'),
+      if (movie.runtime != null && movie.runtime! > 0) '${movie.runtime}분',
+    ].join(' · ');
 
     return Scaffold(
       appBar: AppBar(
@@ -109,11 +131,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Image.asset(
-                movie.posterAsset,
+              TmdbPosterImage(
+                posterPath: movie.posterPath,
                 width: double.infinity,
                 height: 320,
-                fit: BoxFit.cover,
               ),
               Padding(
                 padding: const EdgeInsets.all(24),
@@ -123,23 +144,24 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                     Text(movie.title, style: textTheme.headlineSmall),
                     const SizedBox(height: 8),
                     Text(
-                      '${movie.year} · ${movie.genres.join('/')} · ${movie.runtimeMinutes}분',
+                      info,
                       style: textTheme.bodyMedium?.copyWith(
                         color: colors.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 12),
                     MovieRatingSummary(
-                      rating: movie.rating,
-                      ratingCount: movie.ratingCount,
+                      // TMDB 평점은 10점 만점이라 별 5개 기준으로 환산한다.
+                      rating: movie.voteAverage / 2,
+                      ratingCount: movie.voteCount,
                     ),
                     const SizedBox(height: 16),
-                    GenreChips(genres: movie.genres),
+                    GenreChips(genres: genreNames),
                     const SizedBox(height: 24),
                     Text('시놉시스', style: textTheme.titleMedium),
                     const SizedBox(height: 8),
                     Text(
-                      movie.synopsis,
+                      movie.overview.isEmpty ? '등록된 줄거리가 없어요.' : movie.overview,
                       style: textTheme.bodyMedium?.copyWith(height: 1.6),
                     ),
                   ],
