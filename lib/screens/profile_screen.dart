@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
 import '../widgets/app_top_bar.dart';
 import '../widgets/genre_chips.dart';
@@ -79,6 +80,13 @@ class ProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               const GenreChips(genres: ['드라마', 'SF', '애니메이션']),
+              const SizedBox(height: 32),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('내가 등록한 평점'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/my/ratings'),
+              ),
             ],
           ),
         ),
