@@ -2,19 +2,45 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../services/member_check_service.dart';
+import '../core/validators/password_validator.dart';
+import '../models/create_member_request.dart';
+import '../services/sign_up_service.dart';
+import '../view_models/learning_member_session.dart';
 import '../view_models/sign_up_view_model.dart';
-import '../widgets/app_top_bar.dart';
 import '../widgets/movielog_button.dart';
 
-class RegisterScreen extends StatefulWidget {
+/// 회원가입 화면. 가입 요청 중에는 뒤로가기를 막는다.
+class RegisterScreen extends StatelessWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider<SignUpViewModel>(
+      create: (context) => SignUpViewModel(context.read<SignUpService>()),
+      child: Consumer<SignUpViewModel>(
+        builder: (context, viewModel, child) {
+          return PopScope(
+            canPop: viewModel.submitStatus != SubmitStatus.submitting,
+            child: Scaffold(
+              appBar: AppBar(title: const Text('회원가입')),
+              body: child,
+            ),
+          );
+        },
+        child: const _SignUpForm(),
+      ),
+    );
+  }
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _SignUpForm extends StatefulWidget {
+  const _SignUpForm();
+
+  @override
+  State<_SignUpForm> createState() => _SignUpFormState();
+}
+
+class _SignUpFormState extends State<_SignUpForm> {
   final _formKey = GlobalKey<FormState>();
   final _nicknameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -30,38 +56,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<SignUpViewModel>(
-      create: (context) => SignUpViewModel(context.read<MemberCheckService>()),
-      child: Scaffold(
-        appBar: const AppTopBar(title: '회원가입'),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildNicknameField(),
-                  const SizedBox(height: 24),
-                  _buildEmailField(),
-                  const SizedBox(height: 24),
-                  TextFormField(
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildNicknameField(),
+              const SizedBox(height: 24),
+              _buildEmailField(),
+              const SizedBox(height: 24),
+              Consumer<SignUpViewModel>(
+                builder: (context, viewModel, child) {
+                  return TextFormField(
                     controller: _passwordController,
+                    decoration: InputDecoration(
+                      labelText: '비밀번호',
+                      errorText: viewModel.passwordErrorText,
+                    ),
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: '비밀번호'),
-                    validator: (value) {
-                      if ((value ?? '').length < 8) {
-                        return '비밀번호는 8자 이상 입력해 주세요.';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 32),
-                  _buildSubmitButton(),
-                ],
+                    validator: (value) => validatePasswordFormat(value),
+                    onChanged: (_) => viewModel.onPasswordChanged(),
+                  );
+                },
               ),
-            ),
+              const SizedBox(height: 32),
+              _buildSubmitButton(),
+            ],
           ),
         ),
       ),
@@ -179,19 +202,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  Future<void> _onSubmitPressed(BuildContext context) async {
+    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    final viewModel = context.read<SignUpViewModel>();
+    await viewModel.submit(
+      CreateMemberRequest(
+        email: _emailController.text,
+        password: _passwordController.text,
+        nickname: _nicknameController.text,
+      ),
+    );
+    if (!context.mounted) return;
+    if (viewModel.submitStatus == SubmitStatus.success &&
+        viewModel.createdMemberId != null) {
+      // 가입에 성공하면 이 회원 ID를 앱 전체(평점 저장·내 평점 목록)에서 쓴다.
+      context.read<LearningMemberSession>().setMemberId(
+        viewModel.createdMemberId!,
+      );
+      context.go('/movies');
+      return;
+    }
+    if (viewModel.snackbarMessage != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(viewModel.snackbarMessage!)));
+    }
+  }
+
   Widget _buildSubmitButton() {
     return Consumer<SignUpViewModel>(
       builder: (context, viewModel, child) {
         return MovieLogButton(
           label: '가입하기',
           width: double.infinity,
+          isLoading: viewModel.submitStatus == SubmitStatus.submitting,
           // 닉네임·이메일 중복 확인이 끝나야 눌린다.
           onPressed: viewModel.canSubmit
-              ? () {
-                  if (!(_formKey.currentState?.validate() ?? false)) return;
-                  FocusScope.of(context).unfocus();
-                  context.go('/home');
-                }
+              ? () => _onSubmitPressed(context)
               : null,
         );
       },

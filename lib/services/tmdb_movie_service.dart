@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 
 import '../models/tmdb_genre_dto.dart';
-import '../models/tmdb_movie_detail_dto.dart';
 import '../models/tmdb_movie_dto.dart';
 import '../models/tmdb_movie_page.dart';
 
@@ -47,12 +46,12 @@ class TmdbMovieService {
         .toList();
   }
 
-  Future<TmdbMovieDetailDto> fetchMovieDetail(int movieId) async {
+  Future<TmdbMovieDto> fetchMovieDetail(int movieId) async {
     final response = await _dio.get(
       '/movie/$movieId',
       queryParameters: {'language': 'ko-KR'},
     );
-    return TmdbMovieDetailDto.fromJson(response.data as Map<String, dynamic>);
+    return TmdbMovieDto.fromJson(response.data as Map<String, dynamic>);
   }
 
   /// 평점 목록처럼 id만 아는 경우에 쓴다. TMDB에 없는 영화(404)는 null,

@@ -4,14 +4,10 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 /// 영화 상세 화면의 별점 요약. 평균 평점을 `RatingBarIndicator`로
 /// 읽기 전용 표시하고, 옆에 숫자 평점과 참여자 수를 덧붙인다.
 class MovieRatingSummary extends StatelessWidget {
-  const MovieRatingSummary({
-    super.key,
-    required this.rating,
-    required this.ratingCount,
-  });
+  const MovieRatingSummary({super.key, required this.rating, this.ratingCount});
 
   final double rating;
-  final int ratingCount;
+  final int? ratingCount; // 모르면 null이라 표시하지 않는다
 
   @override
   Widget build(BuildContext context) {
@@ -33,11 +29,15 @@ class MovieRatingSummary extends StatelessWidget {
           rating.toStringAsFixed(1),
           style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
-        const SizedBox(width: 4),
-        Text(
-          '($ratingCount)',
-          style: textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
-        ),
+        if (ratingCount != null) ...[
+          const SizedBox(width: 4),
+          Text(
+            '($ratingCount)',
+            style: textTheme.bodySmall?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -19,7 +19,7 @@ class PopularMovieTile extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return GestureDetector(
-      onTap: () => context.push('/movies/${movie.id}'),
+      onTap: () => context.push('/movies/${movie.id}', extra: movie),
       child: SizedBox(
         width: 110,
         child: Column(

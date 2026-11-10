@@ -2,10 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movielog/screens/register_screen.dart';
-import 'package:movielog/services/member_check_service.dart';
+import 'package:movielog/services/sign_up_service.dart';
 import 'package:provider/provider.dart';
 
-class _FakeService extends MemberCheckService {
+class _FakeService extends SignUpService {
   _FakeService({this.nicknameAvailable = true}) : super(Dio());
   final bool nicknameAvailable;
 
@@ -19,7 +19,7 @@ class _FakeService extends MemberCheckService {
   Future<bool> checkEmail(String email) async => true;
 }
 
-Widget _app(MemberCheckService service) => Provider<MemberCheckService>.value(
+Widget _app(SignUpService service) => Provider<SignUpService>.value(
   value: service,
   child: const MaterialApp(home: RegisterScreen()),
 );

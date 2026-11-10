@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movielog/core/network/movie_log_client.dart';
-import 'package:movielog/services/member_check_service.dart';
+import 'package:movielog/services/sign_up_service.dart';
+import 'package:movielog/view_models/learning_member_session.dart';
 import 'package:provider/provider.dart';
 
 import '../core/network/tmdb_client.dart';
@@ -21,12 +22,15 @@ class MovieLogApp extends StatelessWidget {
         Provider<TmdbMovieService>(
           create: (_) => TmdbMovieService(createTmdbClient()),
         ),
-        Provider<MemberCheckService>(
-          create: (_) => MemberCheckService(movieLogClient),
-        ),
+        Provider<SignUpService>(create: (_) => SignUpService(movieLogClient)),
         Provider<RatingApiService>(
           create: (_) => RatingApiService(movieLogClient),
         ),
+        // lib/app/movie_log_app.dart의 MultiProvider.providers에 추가합니다.
+        ChangeNotifierProvider<LearningMemberSession>(
+          create: (_) => LearningMemberSession(),
+        ),
+        Provider<SignUpService>(create: (_) => SignUpService(movieLogClient)),
       ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,

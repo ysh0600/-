@@ -2,14 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
-import '../models/tmdb_movie_detail_dto.dart';
 import '../view_models/movie_detail_view_model.dart';
-import '../widgets/genre_chips.dart';
 import '../widgets/movie_action_buttons.dart';
-import '../widgets/movie_error_view.dart';
-import '../widgets/movie_loading_view.dart';
-import '../widgets/movie_rating_input.dart';
 import '../widgets/movie_rating_summary.dart';
+import '../widgets/rating_dialog.dart';
 import '../widgets/share_bottom_sheet.dart';
 import '../widgets/tmdb_poster_image.dart';
 
@@ -22,7 +18,6 @@ class MovieDetailScreen extends StatefulWidget {
 
 class _MovieDetailScreenState extends State<MovieDetailScreen> {
   bool _isFavorite = false;
-  int _rating = 0;
 
   void _toggleFavorite() {
     setState(() => _isFavorite = !_isFavorite);
@@ -31,83 +26,38 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     );
   }
 
-  Future<void> _openRatingDialog(TmdbMovieDetailDto movie) async {
-    var tempRating = _rating;
-
-    await showDialog<void>(
+  Future<void> _openRatingDialog() async {
+    final saved = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('평점 남기기'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(movie.title, textAlign: TextAlign.center),
-                  const SizedBox(height: 12),
-                  MovieRatingInput(
-                    rating: tempRating,
-                    onChanged: (value) {
-                      setDialogState(() => tempRating = value);
-                    },
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('취소'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() => _rating = tempRating);
-                    Navigator.of(dialogContext).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('평점 $tempRating점을 남겼어요')),
-                    );
-                  },
-                  child: const Text('저장'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      barrierDismissible: false, // 저장 중 바깥 탭으로 닫히는 것도 막습니다.
+      builder: (_) => RatingDialog(
+        onSubmit: (score, comment) async {
+          final viewModel = context.read<MovieDetailViewModel>();
+          await viewModel.createRating(score: score, comment: comment);
+          if (viewModel.submitStatus != SubmitStatus.success) {
+            throw StateError(viewModel.submitMessage ?? '저장에 실패했습니다.');
+          }
+        },
+      ),
+    );
+
+    if (!mounted || saved != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('평점을 등록했습니다. 마이페이지의 "내가 등록한 평점"에서 확인할 수 있습니다.'),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.watch<MovieDetailViewModel>();
-    final movie = viewModel.movie;
-
-    return switch (viewModel.status) {
-      MovieDetailLoadStatus.idle || MovieDetailLoadStatus.loading => Scaffold(
-        appBar: AppBar(),
-        body: const MovieLoadingView(),
-      ),
-      MovieDetailLoadStatus.error => Scaffold(
-        appBar: AppBar(),
-        body: MovieErrorView(
-          onRetry: () {
-            context.read<MovieDetailViewModel>().load();
-          },
-        ),
-      ),
-      MovieDetailLoadStatus.success => _buildDetail(context, movie!),
-    };
-  }
-
-  Widget _buildDetail(BuildContext context, TmdbMovieDetailDto movie) {
+    final movie = context.read<MovieDetailViewModel>().movie;
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final year = (movie.releaseDate ?? '').split('-').first;
-    final genreNames = movie.genres.map((genre) => genre.name).toList();
     final info = [
       if (year.isNotEmpty) year,
-      if (genreNames.isNotEmpty) genreNames.join('/'),
-      if (movie.runtime != null && movie.runtime! > 0) '${movie.runtime}분',
+      '★ ${movie.voteAverage.toStringAsFixed(1)}',
     ].join(' · ');
 
     return Scaffold(
@@ -150,13 +100,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    MovieRatingSummary(
-                      // TMDB 평점은 10점 만점이라 별 5개 기준으로 환산한다.
-                      rating: movie.voteAverage / 2,
-                      ratingCount: movie.voteCount,
-                    ),
-                    const SizedBox(height: 16),
-                    GenreChips(genres: genreNames),
+                    // TMDB 평점은 10점 만점이라 별 5개 기준으로 환산한다.
+                    MovieRatingSummary(rating: movie.voteAverage / 2),
                     const SizedBox(height: 24),
                     Text('시놉시스', style: textTheme.titleMedium),
                     const SizedBox(height: 8),
@@ -177,7 +122,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           child: MovieActionButtons(
             isFavorite: _isFavorite,
             onFavoritePressed: _toggleFavorite,
-            onRatePressed: () => _openRatingDialog(movie),
+            onRatePressed: _openRatingDialog,
           ),
         ),
       ),

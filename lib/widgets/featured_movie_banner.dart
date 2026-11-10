@@ -18,7 +18,7 @@ class FeaturedMovieBanner extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return GestureDetector(
-      onTap: () => context.push('/movies/${movie.id}'),
+      onTap: () => context.push('/movies/${movie.id}', extra: movie),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppTheme.radius),
         child: SizedBox(
@@ -87,7 +87,8 @@ class FeaturedMovieBanner extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: () => context.push('/movies/${movie.id}'),
+                      onPressed: () =>
+                          context.push('/movies/${movie.id}', extra: movie),
                       child: const Text('상세보기'),
                     ),
                   ],

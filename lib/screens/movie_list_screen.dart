@@ -75,7 +75,7 @@ class _TmdbMovieGrid extends StatelessWidget {
       itemBuilder: (context, index) {
         final movie = movies[index];
         return GestureDetector(
-          onTap: () => context.push('/movies/${movie.id}'),
+          onTap: () => context.push('/movies/${movie.id}', extra: movie),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
