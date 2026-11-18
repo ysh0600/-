@@ -6,7 +6,10 @@ import 'package:movielog/screens/movie_detail_loader.dart';
 import 'package:movielog/services/rating_api_service.dart';
 import 'package:movielog/services/tmdb_movie_service.dart';
 import 'package:movielog/view_models/learning_member_session.dart';
+import 'package:movielog/view_models/auth_view_model.dart';
 import 'package:provider/provider.dart';
+
+import 'test_auth.dart';
 
 const _movie = TmdbMovieDto(
   id: 5,
@@ -36,10 +39,11 @@ class _FakeTmdb extends TmdbMovieService {
 Widget _app(_FakeTmdb tmdb, {TmdbMovieDto? initial}) => MultiProvider(
   providers: [
     Provider<TmdbMovieService>.value(value: tmdb),
-    Provider<RatingApiService>.value(value: RatingApiService(Dio())),
+    Provider<RatingApiService>.value(value: RatingApiService(Dio(), Dio())),
     ChangeNotifierProvider<LearningMemberSession>(
       create: (_) => LearningMemberSession(),
     ),
+    ChangeNotifierProvider<AuthViewModel>(create: (_) => makeTestAuth()),
   ],
   child: MaterialApp(
     home: MovieDetailLoader(movieId: 5, initialMovie: initial),

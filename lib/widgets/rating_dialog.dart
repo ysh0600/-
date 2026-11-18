@@ -106,7 +106,8 @@ class _RatingDialogState extends State<RatingDialog> {
       setState(() {
         _isSubmitting = false;
         _errorText = error is StateError
-            ? error.message // 화면이 서버 오류 문구를 담아 던진 경우
+            ? error
+                  .message // 화면이 서버 오류 문구를 담아 던진 경우
             : '저장하지 못했습니다. 잠시 후 다시 시도해 주세요.';
       });
     }

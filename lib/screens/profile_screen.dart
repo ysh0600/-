@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:movielog/view_models/learning_member_session.dart';
+import 'package:provider/provider.dart';
 
+import '../view_models/auth_view_model.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/genre_chips.dart';
 import '../widgets/profile_header.dart';
@@ -16,6 +19,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final member = context.watch<AuthViewModel>().member;
 
     return Scaffold(
       appBar: AppTopBar(
@@ -36,6 +40,16 @@ class ProfileScreen extends StatelessWidget {
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: '로그아웃',
+            onPressed: () async {
+              final auth = context.read<AuthViewModel>();
+              final session = context.read<LearningMemberSession>();
+              await auth.logout(); // 토큰과 member를 지웁니다.
+              session.clear(); // 이전 계정의 memberId도 지웁니다.
+            },
+          ),
         ],
       ),
       body: SafeArea(
@@ -46,11 +60,14 @@ class ProfileScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               ProfileHeader(
-                name: '무비러버',
+                name: member?.nickname ?? '무비러버',
                 bio:
                     '매주 주말엔 영화관으로 출근하는 프로 관람객. '
                     '좋은 영화를 보고 기록하는 것을 좋아합니다.',
-                onEditPressed: () {},
+                // 내 정보를 불러온 뒤(member != null)에만 수정 버튼을 켠다.
+                onEditPressed: member == null
+                    ? null
+                    : () => context.push('/my/profile/edit'),
               ),
               const SizedBox(height: 32),
               // StatItem을 세 번 재사용해서 통계 영역을 완성한다.

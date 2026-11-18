@@ -6,12 +6,12 @@ class ProfileHeader extends StatelessWidget {
     super.key,
     required this.name,
     required this.bio,
-    required this.onEditPressed,
+    this.onEditPressed,
   });
 
   final String name;
   final String bio;
-  final VoidCallback onEditPressed;
+  final VoidCallback? onEditPressed; // null이면 수정 버튼이 꺼진다
 
   @override
   Widget build(BuildContext context) {

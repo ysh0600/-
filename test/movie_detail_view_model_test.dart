@@ -1,25 +1,29 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movielog/models/rating_dto.dart';
 import 'package:movielog/models/rating_request.dart';
 import 'package:movielog/services/rating_api_service.dart';
 import 'package:movielog/models/tmdb_movie_dto.dart';
+import 'package:movielog/view_models/auth_view_model.dart';
 import 'package:movielog/view_models/movie_detail_view_model.dart';
 
-class _FakeRatingService extends RatingApiService {
-  _FakeRatingService() : super(Dio());
+import 'test_auth.dart';
 
-  int? gotMemberId;
+class _FakeRatingService extends RatingApiService {
+  _FakeRatingService() : super(Dio(), Dio());
+
   CreateRatingRequest? gotRequest;
   int? failWithStatus;
+  Completer<void>? gate; // 응답이 늦게 오는 상황을 만들 때 쓴다
+  String? failWithCode;
   bool unexpected = false;
 
   @override
-  Future<void> createRating({
-    required int memberId,
-    required CreateRatingRequest request,
-  }) async {
-    gotMemberId = memberId;
+  Future<RatingDto> createRating(CreateRatingRequest request) async {
     gotRequest = request;
+    await gate?.future;
     if (unexpected) throw StateError('예상하지 못한 등록 응답: 200');
     if (failWithStatus != null) {
       throw DioException(
@@ -27,9 +31,17 @@ class _FakeRatingService extends RatingApiService {
         response: Response(
           requestOptions: RequestOptions(),
           statusCode: failWithStatus,
+          data: failWithCode == null ? null : {'code': failWithCode},
         ),
       );
     }
+    return RatingDto(
+      ratingId: 1,
+      movieId: request.movieId,
+      score: request.score,
+      comment: request.comment,
+      createdAt: DateTime(2026, 11, 4),
+    );
   }
 }
 
@@ -48,36 +60,67 @@ const _movie = TmdbMovieDto(
 void main() {
   late _FakeRatingService ratings;
 
-  MovieDetailViewModel viewModelFor(int? memberId) =>
-      MovieDetailViewModel(ratings, memberId, _movie);
+  late AuthViewModel auth;
+
+  MovieDetailViewModel viewModelFor() =>
+      MovieDetailViewModel(ratings, auth, _movie);
 
   setUp(() {
     ratings = _FakeRatingService();
+    auth = makeTestAuth();
   });
 
-  test('저장 성공: 세션의 memberId와 영화 id로 요청하고 success', () async {
-    final viewModel = viewModelFor(7);
+  test('저장 성공: 선택한 영화 id로 요청하고 success', () async {
+    final viewModel = viewModelFor();
     await viewModel.createRating(score: 4, comment: '좋아요');
 
     expect(viewModel.submitStatus, SubmitStatus.success);
-    expect(ratings.gotMemberId, 7);
     expect(ratings.gotRequest!.movieId, 969681);
     expect(ratings.gotRequest!.score, 4);
     expect(ratings.gotRequest!.comment, '좋아요');
+    expect(viewModel.createdRating?.movieId, 969681); // 응답의 Rating 객체를 보관
   });
 
-  test('회원가입 전(memberId 없음)이면 요청 없이 error', () async {
-    final viewModel = viewModelFor(null);
+  test('AUTH401_2면 세션을 정리하고 로그아웃 상태가 된다', () async {
+    final viewModel = viewModelFor();
+    ratings.failWithStatus = 401;
+    ratings.failWithCode = 'AUTH401_2';
     await viewModel.createRating(score: 4);
 
     expect(viewModel.submitStatus, SubmitStatus.error);
-    expect(viewModel.submitMessage, '학습용 회원가입이 필요합니다.');
-    expect(ratings.gotRequest, isNull);
+    expect(viewModel.submitMessage, contains('만료'));
+    expect(auth.status, AuthStatus.signedOut);
+    expect(auth.sessionExpired, isTrue);
+  });
+
+  test('403·409는 안내만 하고 로그인 상태를 유지한다', () async {
+    final viewModel = viewModelFor();
+    ratings.failWithStatus = 403;
+    ratings.failWithCode = 'RATING403_1';
+    await viewModel.createRating(score: 4);
+
+    expect(viewModel.submitStatus, SubmitStatus.error);
+    expect(auth.status, AuthStatus.signedIn);
+  });
+
+  test('로그아웃 뒤 늦게 온 응답은 화면에 반영하지 않는다', () async {
+    final viewModel = viewModelFor();
+    ratings.gate = Completer<void>();
+    final pending = viewModel.createRating(score: 4);
+    await Future<void>.delayed(Duration.zero);
+
+    await auth.logout(); // 응답이 오기 전에 로그아웃
+    ratings.gate!.complete();
+    await pending;
+
+    expect(viewModel.submitStatus, isNot(SubmitStatus.success));
+    expect(viewModel.createdRating, isNull);
   });
 
   test('이미 평점을 남긴 영화(409)는 전용 문구', () async {
-    final viewModel = viewModelFor(7);
+    final viewModel = viewModelFor();
     ratings.failWithStatus = 409;
+    ratings.failWithCode = 'RATING409_1';
     await viewModel.createRating(score: 3);
 
     expect(viewModel.submitStatus, SubmitStatus.error);
@@ -85,15 +128,15 @@ void main() {
   });
 
   test('그 외 서버 오류는 일반 문구', () async {
-    final viewModel = viewModelFor(7);
+    final viewModel = viewModelFor();
     ratings.failWithStatus = 500;
     await viewModel.createRating(score: 3);
 
     expect(viewModel.submitMessage, contains('저장하지 못했습니다'));
   });
 
-  test('201이 아닌 응답(StateError)도 error로 끝나고 멈추지 않는다', () async {
-    final viewModel = viewModelFor(7);
+  test('예상 밖 응답(StateError)도 error로 끝나고 멈추지 않는다', () async {
+    final viewModel = viewModelFor();
     ratings.unexpected = true;
     await viewModel.createRating(score: 3);
 
@@ -102,7 +145,7 @@ void main() {
   });
 
   test('실패 뒤 다시 저장하면 이전 오류 문구가 지워진다', () async {
-    final viewModel = viewModelFor(7);
+    final viewModel = viewModelFor();
     ratings.failWithStatus = 500;
     await viewModel.createRating(score: 3);
     expect(viewModel.submitStatus, SubmitStatus.error);

@@ -5,14 +5,21 @@ import '../models/rating_with_movie.dart';
 import '../models/tmdb_movie_dto.dart';
 import '../services/rating_api_service.dart';
 import '../services/tmdb_movie_service.dart';
+import 'auth_view_model.dart';
 
 const int sampleMemberId = 1; // 인증된 '내 계정'이 아닌 학습용 데이터입니다.
 
 enum MyRatingsLoadStatus { idle, loading, success, empty, error }
 
 class MyRatingsViewModel extends ChangeNotifier {
-  MyRatingsViewModel(this._service, this._movieService, this.memberId);
+  MyRatingsViewModel(
+    this._service,
+    this._movieService,
+    this.memberId,
+    this._auth,
+  );
   final RatingApiService _service;
+  final AuthViewModel _auth;
   final TmdbMovieService _movieService;
   final int memberId;
   final Map<int, TmdbMovieDto?> _movieCache = {};
@@ -37,36 +44,53 @@ class MyRatingsViewModel extends ChangeNotifier {
     }
   }
 
+  /// 요청 보내기 전의 세션과 지금 세션이 다르면(로그아웃·회원 전환) 응답을 버린다.
+  bool _isStale(int sessionVersion) =>
+      _disposed || sessionVersion != _auth.sessionVersion;
+
   Future<void> updateRating({
     required int ratingId,
     required int score,
     String? comment,
   }) async {
+    final sessionVersion = _auth.sessionVersion;
     try {
       await _service.updateRating(
-        memberId: memberId,
         ratingId: ratingId,
         score: score,
         comment: comment,
       );
     } on DioException catch (error) {
+      if (_isStale(sessionVersion)) return;
+      if (isSessionExpiredError(error)) {
+        await _auth.expireSession(); // 세션 정리 → 라우터가 /login으로 보낸다.
+        return;
+      }
       message = writeErrorMessage(error);
       notifyListeners();
       if (shouldRefreshAfterRatingError(error)) await load();
       rethrow; // 쓰기 실패일 때만 Dialog가 실패로 처리합니다.
     }
+    if (_isStale(sessionVersion)) return;
     await _refreshAfterWrite(); // GET 실패는 저장 실패로 다시 던지지 않습니다.
   }
 
   Future<void> deleteRating(int ratingId) async {
+    final sessionVersion = _auth.sessionVersion;
     try {
-      await _service.deleteRating(memberId: memberId, ratingId: ratingId);
+      await _service.deleteRating(ratingId);
     } on DioException catch (error) {
+      if (_isStale(sessionVersion)) return;
+      if (isSessionExpiredError(error)) {
+        await _auth.expireSession();
+        return;
+      }
       message = writeErrorMessage(error);
       notifyListeners();
       if (shouldRefreshAfterRatingError(error)) await load();
       rethrow;
     }
+    if (_isStale(sessionVersion)) return;
     await _refreshAfterWrite();
   }
 
@@ -82,15 +106,23 @@ class MyRatingsViewModel extends ChangeNotifier {
 
   Future<void> deleteSelectedRatings() async {
     if (isDeletingSelected || selectedRatingIds.isEmpty) return;
+    final sessionVersion = _auth.sessionVersion;
     isDeletingSelected = true;
     notifyListeners();
     var failed = 0;
+    var expired = false;
     try {
       for (final ratingId in selectedRatingIds.toList()) {
         try {
-          await _service.deleteRating(memberId: memberId, ratingId: ratingId);
+          await _service.deleteRating(ratingId);
+          if (_isStale(sessionVersion)) return;
           selectedRatingIds.remove(ratingId);
-        } on DioException {
+        } on DioException catch (error) {
+          if (_isStale(sessionVersion)) return;
+          if (isSessionExpiredError(error)) {
+            expired = true;
+            break; // 세션이 끝났으니 나머지 삭제는 보내지 않는다.
+          }
           failed++;
           // 실패한 항목은 선택 상태를 유지합니다.
         }
@@ -99,7 +131,11 @@ class MyRatingsViewModel extends ChangeNotifier {
       isDeletingSelected = false;
       if (!_disposed) notifyListeners(); // 예상하지 못한 오류에도 로딩을 해제합니다.
     }
-    if (_disposed) return;
+    if (expired) {
+      await _auth.expireSession();
+      return;
+    }
+    if (_isStale(sessionVersion)) return;
     await _refreshAfterWrite(); // GET 실패는 삭제 성공 여부와 분리합니다.
     if (!_disposed && failed > 0) {
       message = '$failed개 항목을 삭제하지 못했습니다. 선택된 항목을 다시 확인해 주세요.';
@@ -107,39 +143,21 @@ class MyRatingsViewModel extends ChangeNotifier {
     }
   }
 
-  // TEMP: 스크린샷용. flutter run --dart-define=RATINGS_FORCE=loading|empty|error
-  // 찍고 나면 이 줄과 아래 TEMP 블록을 지운다.
-  static const _force = String.fromEnvironment('RATINGS_FORCE');
-
   Future<void> load() async {
     final version = ++_requestVersion;
+    final sessionVersion = _auth.sessionVersion;
     status = MyRatingsLoadStatus.loading;
     message = null;
     notifyListeners();
 
-    // TEMP 시작
-    if (_force == 'loading') return; // 로딩 상태로 계속 둔다
-    if (_force == 'empty') {
-      ratings = const [];
-      status = MyRatingsLoadStatus.empty;
-      notifyListeners();
-      return;
-    }
-    if (_force == 'error') {
-      status = MyRatingsLoadStatus.error;
-      message = '평점을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
-      notifyListeners();
-      return;
-    }
-    // TEMP 끝
     try {
       final rawRatings = await _service.fetchMyRatings(memberId);
-      if (_disposed || version != _requestVersion) return;
+      if (_isStale(sessionVersion) || version != _requestVersion) return;
       final entries = <RatingWithMovie>[];
       var missingMovies = 0;
       // 같은 movieId는 캐시를 사용하고, 영화 조회 실패가 평점 목록을 지우지 않습니다.
       for (final rating in rawRatings) {
-        if (_disposed || version != _requestVersion) return;
+        if (_isStale(sessionVersion) || version != _requestVersion) return;
         if (!_movieCache.containsKey(rating.movieId)) {
           try {
             _movieCache[rating.movieId] = await _movieService.findMovieById(
@@ -153,7 +171,7 @@ class MyRatingsViewModel extends ChangeNotifier {
         if (movie == null) missingMovies++;
         entries.add(RatingWithMovie(rating: rating, movie: movie));
       }
-      if (_disposed || version != _requestVersion) return;
+      if (_isStale(sessionVersion) || version != _requestVersion) return;
       ratings = entries;
       final ids = entries.map((e) => e.rating.ratingId).toSet();
       selectedRatingIds.retainWhere(ids.contains);
@@ -164,7 +182,7 @@ class MyRatingsViewModel extends ChangeNotifier {
         message = '일부 영화 정보를 가져오지 못해 제목·포스터를 대신 표시합니다.';
       }
     } on DioException catch (error) {
-      if (_disposed || version != _requestVersion) return;
+      if (_isStale(sessionVersion) || version != _requestVersion) return;
       status = MyRatingsLoadStatus.error;
       message = writeMyRatingsErrorMessage(error);
     }

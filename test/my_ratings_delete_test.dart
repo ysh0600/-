@@ -7,10 +7,13 @@ import 'package:movielog/screens/my_ratings_screen.dart';
 import 'package:movielog/services/rating_api_service.dart';
 import 'package:movielog/services/tmdb_movie_service.dart';
 import 'package:movielog/view_models/my_ratings_view_model.dart';
+
+import 'test_auth.dart';
+
 import 'package:provider/provider.dart';
 
 class _FakeRatings extends RatingApiService {
-  _FakeRatings() : super(Dio());
+  _FakeRatings() : super(Dio(), Dio());
 
   final items = <RatingDto>[
     RatingDto(
@@ -35,10 +38,7 @@ class _FakeRatings extends RatingApiService {
   Future<List<RatingDto>> fetchMyRatings(int memberId) async => [...items];
 
   @override
-  Future<void> deleteRating({
-    required int memberId,
-    required int ratingId,
-  }) async {
+  Future<void> deleteRating(int ratingId) async {
     if (failDeleteWith != null) {
       throw DioException(
         requestOptions: RequestOptions(),
@@ -64,7 +64,8 @@ Future<void> _pump(WidgetTester tester, _FakeRatings ratings) async {
   await tester.pumpWidget(
     MaterialApp(
       home: ChangeNotifierProvider<MyRatingsViewModel>(
-        create: (_) => MyRatingsViewModel(ratings, _FakeTmdb(), 1)..load(),
+        create: (_) =>
+            MyRatingsViewModel(ratings, _FakeTmdb(), 1, makeTestAuth())..load(),
         child: const MyRatingsScreen(),
       ),
     ),

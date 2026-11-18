@@ -110,6 +110,11 @@ class _RatingList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    // 이 화면이 불러온 영화 정보를 TMDB id로 찾을 수 있게 만든다.
+    final moviesById = {
+      for (final item in ratings)
+        if (item.movie != null) item.movie!.id: item.movie!,
+    };
 
     return Column(
       children: [
@@ -126,7 +131,8 @@ class _RatingList extends StatelessWidget {
             itemBuilder: (context, index) {
               final item = ratings[index];
               final rating = item.rating;
-              final movie = item.movie;
+              final movie = moviesById[rating.movieId];
+              final title = movie?.title ?? '영화 #${rating.movieId}';
 
               return Container(
                 padding: const EdgeInsets.all(12),
@@ -161,7 +167,7 @@ class _RatingList extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            movie?.title ?? '영화 #${rating.movieId}',
+                            title,
                             style: textTheme.titleMedium,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
