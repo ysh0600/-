@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:movielog/view_models/favorite_detail_view_model.dart';
 import 'package:provider/provider.dart';
 
 import '../view_models/movie_detail_view_model.dart';
+import '../widgets/favorite_button.dart';
 import '../widgets/movie_action_buttons.dart';
 import '../widgets/movie_rating_summary.dart';
 import '../widgets/rating_dialog.dart';
@@ -17,13 +19,12 @@ class MovieDetailScreen extends StatefulWidget {
 }
 
 class _MovieDetailScreenState extends State<MovieDetailScreen> {
-  bool _isFavorite = false;
-
-  void _toggleFavorite() {
-    setState(() => _isFavorite = !_isFavorite);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_isFavorite ? '즐겨찾기에 추가했어요' : '즐겨찾기에서 삭제했어요')),
-    );
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<FavoriteDetailViewModel>().load();
+    });
   }
 
   Future<void> _openRatingDialog() async {
@@ -91,13 +92,27 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(movie.title, style: textTheme.headlineSmall),
-                    const SizedBox(height: 8),
-                    Text(
-                      info,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
+                    // 제목·정보 텍스트 오른쪽에 서버 즐겨찾기 버튼을 둔다.
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(movie.title, style: textTheme.headlineSmall),
+                              const SizedBox(height: 8),
+                              Text(
+                                info,
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const FavoriteButton(),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     // TMDB 평점은 10점 만점이라 별 5개 기준으로 환산한다.
@@ -119,11 +134,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: MovieActionButtons(
-            isFavorite: _isFavorite,
-            onFavoritePressed: _toggleFavorite,
-            onRatePressed: _openRatingDialog,
-          ),
+          child: MovieActionButtons(onRatePressed: _openRatingDialog),
         ),
       ),
     );

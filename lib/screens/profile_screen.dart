@@ -10,7 +10,6 @@ import '../widgets/genre_chips.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_stats.dart';
 import '../widgets/stat_item.dart';
-import 'signup_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -25,31 +24,16 @@ class ProfileScreen extends StatelessWidget {
       appBar: AppTopBar(
         title: '내 프로필',
         actions: [
-          IconButton(
-            icon: SvgPicture.asset(
-              'assets/icons/person.svg',
-              width: 24,
-              height: 24,
-              colorFilter: ColorFilter.mode(colors.onSurface, BlendMode.srcIn),
-            ),
-            tooltip: '회원가입 화면 보기',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SignupScreen()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: '로그아웃',
+          TextButton(
             onPressed: () async {
               final auth = context.read<AuthViewModel>();
               final session = context.read<LearningMemberSession>();
               await auth.logout(); // 토큰과 member를 지웁니다.
               session.clear(); // 이전 계정의 memberId도 지웁니다.
             },
+            child: const Text('로그아웃'),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
@@ -61,9 +45,7 @@ class ProfileScreen extends StatelessWidget {
             children: [
               ProfileHeader(
                 name: member?.nickname ?? '무비러버',
-                bio:
-                    '매주 주말엔 영화관으로 출근하는 프로 관람객. '
-                    '좋은 영화를 보고 기록하는 것을 좋아합니다.',
+                bio: member?.email ?? '',
                 // 내 정보를 불러온 뒤(member != null)에만 수정 버튼을 켠다.
                 onEditPressed: member == null
                     ? null
@@ -77,6 +59,16 @@ class ProfileScreen extends StatelessWidget {
                   StatItem(label: '평점', value: '4.2'),
                   StatItem(label: '즐겨찾기', value: '58'),
                 ],
+              ),
+              const SizedBox(height: 32),
+              _MenuCard(
+                title: '내가 등록한 평점',
+                onTap: () => context.push('/my/ratings'),
+              ),
+              const SizedBox(height: 8),
+              _MenuCard(
+                title: '내 즐겨찾기',
+                onTap: () => context.push('/my/favorites'),
               ),
               const SizedBox(height: 32),
               Row(
@@ -97,13 +89,45 @@ class ProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               const GenreChips(genres: ['드라마', 'SF', '애니메이션']),
-              const SizedBox(height: 32),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('내가 등록한 평점'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/my/ratings'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 테두리가 있는 둥근 메뉴 행 (내가 등록한 평점, 내 즐겨찾기).
+class _MenuCard extends StatelessWidget {
+  const _MenuCard({required this.title, required this.onTap});
+
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: colors.primaryContainer, width: 1.5),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
+              Icon(Icons.chevron_right, color: colors.primary),
             ],
           ),
         ),

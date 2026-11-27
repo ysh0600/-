@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
+import 'package:movielog/core/session/auth_bridge.dart';
+import 'package:movielog/core/session/session_guard.dart';
+import 'package:movielog/services/favorite_api_service.dart';
 import 'package:provider/provider.dart';
 
 import '../core/network/movie_log_client.dart';
@@ -40,16 +43,39 @@ class MovieLogApp extends StatelessWidget {
         Provider<RatingApiService>(
           create: (_) => RatingApiService(publicClient, authClient),
         ),
-        ChangeNotifierProvider<LearningMemberSession>(
-          create: (_) => LearningMemberSession(),
-        ),
-        // Service를 주입받는 ViewModel
+        // Service를 주입받는 ViewModel.
+        // AuthSessionBridge가 이 ViewModel을 읽으므로 반드시 그보다 위(앞)에 둔다.
         ChangeNotifierProvider<AuthViewModel>(
           create: (context) => AuthViewModel(
             context.read<AuthApiService>(),
             context.read<MemberApiService>(),
             context.read<TokenStorage>(),
           ),
+        ),
+        // 기존 MultiProvider의 providers 목록에 추가합니다.
+        Provider<AuthSessionBridge>(
+          create: (context) {
+            final auth = context.read<AuthViewModel>();
+            return AuthSessionBridge(
+              authSignals: auth,
+              sessionVersion: () => auth.sessionVersion,
+              verifiedEmail: () => auth.status == AuthStatus.signedIn
+                  ? auth.member?.email
+                  : null,
+            );
+          },
+          dispose: (_, bridge) => bridge.dispose(),
+        ),
+        Provider<SessionGuard>(
+          create: (context) => context.read<AuthSessionBridge>().guard,
+        ),
+        // 기존 MultiProvider의 providers 목록에 추가합니다.
+        // authClient는 8주차에서 만든 보호용 Dio입니다. 새로 만들지 않고 기존 인스턴스를 사용합니다.
+        Provider<FavoriteApiService>(
+          create: (_) => FavoriteApiService(authClient),
+        ),
+        ChangeNotifierProvider<LearningMemberSession>(
+          create: (_) => LearningMemberSession(),
         ),
       ],
       child: const _MovieLogRouterApp(),

@@ -1,15 +1,18 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movielog/core/session/session_guard.dart';
 import 'package:movielog/models/tmdb_movie_dto.dart';
 import 'package:movielog/screens/movie_detail_loader.dart';
 import 'package:movielog/services/rating_api_service.dart';
 import 'package:movielog/services/tmdb_movie_service.dart';
 import 'package:movielog/view_models/learning_member_session.dart';
 import 'package:movielog/view_models/auth_view_model.dart';
+import 'package:movielog/view_models/favorite_detail_view_model.dart';
 import 'package:provider/provider.dart';
 
 import 'test_auth.dart';
+import 'test_favorites.dart';
 
 const _movie = TmdbMovieDto(
   id: 5,
@@ -45,8 +48,17 @@ Widget _app(_FakeTmdb tmdb, {TmdbMovieDto? initial}) => MultiProvider(
     ),
     ChangeNotifierProvider<AuthViewModel>(create: (_) => makeTestAuth()),
   ],
-  child: MaterialApp(
-    home: MovieDetailLoader(movieId: 5, initialMovie: initial),
+  child: ChangeNotifierProvider<FavoriteDetailViewModel>(
+    create: (_) => FavoriteDetailViewModel(
+      movieId: 5,
+      favoriteApi: FakeFavoriteApi(),
+      sessionGuard: SessionGuard()..startSession('a@b.c'),
+      accountId: 'a@b.c',
+      onSessionExpired: () async {},
+    ),
+    child: MaterialApp(
+      home: MovieDetailLoader(movieId: 5, initialMovie: initial),
+    ),
   ),
 );
 
